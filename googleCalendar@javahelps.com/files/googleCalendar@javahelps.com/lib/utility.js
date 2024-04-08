@@ -26,6 +26,7 @@ const Tooltips = imports.ui.tooltips;
 const Gettext = imports.gettext;
 const ByteArray = imports.byteArray;
 const Util = imports.misc.util;
+const Clutter = imports.gi.Clutter;
 
 imports.searchPath.unshift(GLib.get_home_dir() + "/.local/share/cinnamon/desklets/googleCalendar@javahelps.com/lib");
 
@@ -82,14 +83,66 @@ CalendarUtility.prototype.window = function(cornerRadius, textColor, bgColor, tr
     return window;
 };
 
-CalendarUtility.prototype.setTooltip = function(widget, text) {
+CalendarUtility.prototype.setTooltip = function(widget, text, isHTML = false) {
     let tooltip = new Tooltips.Tooltip(widget);
     tooltip.set_text(text);
+    if (isHTML) {
+        tooltip._tooltip.style = 'text-align: left;';
+        tooltip._tooltip.clutter_text.set_use_markup(true);
+        tooltip._tooltip.clutter_text.allocate_preferred_size(Clutter.AllocationFlags.NONE);
+        tooltip._tooltip.queue_relayout();    
+    }
+    return tooltip;
 };
 
 CalendarUtility.prototype.formatParameterDate = function(value) {
     return value.getMonth() + 1 + "/" + value.getDate() + "/" + value.getFullYear();
 };
+
+CalendarUtility.prototype.HTMLPartToTextPart = function(HTMLPart) {
+
+      let retStr =  HTMLPart
+        .replace(/<style[^>]*>[\s\S]*?<\/style[^>]*>/ig, '')
+        .replace(/<head[^>]*>[\s\S]*?<\/head[^>]*>/ig, '\n')
+        .replace(/<script[^>]*>[\s\S]*?<\/script[^>]*>/ig, '')
+        .replace(/<\/\s*(?:p|div)>/ig, '\n')
+        .replace(/<br[^>]*\/?>/ig, '\n')
+        .replace(/<[^>]*>/ig, '')
+        .replace('&nbsp;', ' ')
+        .replace(/\n[\r\n]*/igm, '\n')
+        .replace(/[^\S\n][^\S\n]+/ig, '\n')
+        .replace(/&lt;http[s]*:\/\/.*&gt;/igm, ' &lt;LINK&gt; ')
+        .replace(/&lt;.*&gt;/igm, '')
+        .replace(/\[cid[^\]]*\]/igm, '')
+      ;
+    return retStr;      
+}
+     
+CalendarUtility.prototype.formatTextWrap = function(text, maxLineLength) {
+          
+    const re1 = new RegExp( '([^\\s]{'+maxLineLength+'})', 'g')
+    const re2 = new RegExp( '([^\n]{1,'+maxLineLength+'})(\\s|$)', 'g' );
+          
+    return text
+        .replace( re1, '$1\n')
+        .replace( re2, '$1\n')
+        .trim()
+        ;
+} 
+
+
+CalendarUtility.prototype.getOrganizer = function( organizer ) {
+    
+    if (organizer.hasOwnProperty('displayName')) {
+        return organizer.displayName;
+    }
+
+    if (organizer.hasOwnProperty('email')) {
+        return ' ' + organizer.email;
+    }
+    
+    return '-';
+}
 
 /**
  * Event prototype with the following attributes:
@@ -102,6 +155,10 @@ CalendarUtility.prototype.formatParameterDate = function(value) {
  * - useTwentyFourHour
  * - color
  * - location
+ * - description
+ * - status
+ * - organizer
+ * - attendees
  */
 Event.prototype = {
     _init(event, useTwentyFourHour) {
@@ -118,6 +175,12 @@ Event.prototype = {
             throw "Error in parsing " + eventLine;
         }
         this.useTwentyFourHour = useTwentyFourHour;
+        
+        this.description = event.hasOwnProperty("description") ? event["description"] : "";
+        this.status = event.hasOwnProperty("status") ? event["status"] : "unknown";
+        this.organizer = event.hasOwnProperty("organizer") ? event["organizer"] : new Object();
+        this.attendees = event.hasOwnProperty("attendees") ? event["attendees"] : new Object();
+        
     },
 
     formatEventDuration(date) {

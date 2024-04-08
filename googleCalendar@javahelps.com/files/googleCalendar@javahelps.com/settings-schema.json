@@ -51,6 +51,11 @@
         "diff_calendar",
         "show_location",
         "location_color",
+        "show_tooltip",
+        "show_details",
+        "show_state",
+        "detail_sizex", 
+        "detail_sizey",
         "cornerradius"
       ]
     }
@@ -212,6 +217,44 @@
     "default": "rgb(255,255,255)",
     "description": "Location text color",
     "tooltip": "Click the button to select a new location text color"
+  },
+  "show_tooltip": {
+    "type": "checkbox",
+    "default": true,
+    "description": "Show event details in tooltip",
+    "tooltip": "Show event information in tooltip"
+  },
+  "show_details": {
+    "type": "checkbox",
+    "default": true,
+    "description": "Show event details on clicking the event",
+    "tooltip": "Show event information by clicking"
+  },
+  "show_state": {
+    "type": "checkbox",
+    "default": true,
+    "description": "Show confirmation state on event list",
+    "tooltip": "Show confirmation"
+  },
+  "detail_sizex": {
+    "type": "scale", 
+    "indent": true,
+    "default": 400,
+    "min": 200,
+    "max": 2000,
+    "step": 10,
+    "description": "Width of detail windows",
+    "tooltip": "Set X size of detial windows."
+  },
+  "detail_sizey": {
+    "type": "scale", 
+    "indent": true,
+    "default": 600,
+    "min": 200,
+    "max": 2000,
+    "step": 10,
+    "description": "Height of detail windows",
+    "tooltip": "Set Y size of detial windows."
   },
   "cornerradius": {
     "type": "spinbutton",

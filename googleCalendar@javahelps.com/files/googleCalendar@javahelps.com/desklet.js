@@ -32,8 +32,12 @@ const Gtk = imports.gi.Gtk;
 const St = imports.gi.St;
 const PopupMenu = imports.ui.popupMenu;
 
+const Signals = imports.signals;
+const SignalManager = imports.misc.signalManager;
+
 // Import local libraries
-imports.searchPath.unshift(GLib.get_home_dir() + "/.local/share/cinnamon/desklets/googleCalendar@javahelps.com/lib");
+const LIBPATH=GLib.get_home_dir() + "/.local/share/cinnamon/desklets/googleCalendar@javahelps.com/lib";
+imports.searchPath.unshift(LIBPATH);
 const XDate = imports.utility.XDate;
 const SpawnReader = imports.utility.SpawnReader;
 const Event = imports.utility.Event;
@@ -76,6 +80,8 @@ GoogleCalendarDesklet.prototype = {
         this.tomorrow = new XDate().addDays(1).toString("yyyy-MM-dd");
 
         this._updateDecoration();
+        
+        this._signals = new SignalManager.SignalManager(null);
 
         // Bind properties
         this.settings = new Settings.DeskletSettings(this, this.metadata["uuid"], deskletID);
@@ -95,9 +101,16 @@ GoogleCalendarDesklet.prototype = {
         this.settings.bind("bgcolor", "bgcolor", this.onDeskletFormatChanged, null);
         this.settings.bind("diff_calendar", "diff_calendar", this.onDeskletFormatChanged, null);
         this.settings.bind("show_location", "show_location", this.onDeskletFormatChanged, null);
+        this.settings.bind("show_tooltip", "show_tooltip", this.onDeskletFormatChanged, null);
+        this.settings.bind("show_details", "show_details", this.onDeskletFormatChanged, null);
+        this.settings.bind("show_state", "show_state", this.onDeskletFormatChanged, null);
         this.settings.bind("location_color", "location_color", this.onDeskletFormatChanged, null);
         this.settings.bind("transparency", "transparency", this.onDeskletFormatChanged, null);
         this.settings.bind("cornerradius", "cornerradius", this.onDeskletFormatChanged, null);
+        
+        this.settings.bind("detail_sizex", "detail_sizex", ()=>{}, null);
+        this.settings.bind("detail_sizey", "detail_sizey", ()=>{}, null);
+        
         this.setCalendarName();
 
         // Set header
@@ -222,6 +235,7 @@ GoogleCalendarDesklet.prototype = {
         command.push(this.interval.toString());
         this.addCalendarList(command);
         this.addAccountID(command, accountId);
+
         return command;
     },
 
@@ -247,6 +261,27 @@ GoogleCalendarDesklet.prototype = {
         }
     },
 
+    getStatusStr( respStat ) {
+      let retStr = '';      
+        if (respStat=='needsAction') {
+          retStr += '\u2610';
+        }
+        if (respStat=='confirmed') {
+          retStr += '\u2611\ufe0f';
+        }
+        if (respStat=='accepted') {
+          retStr += '\u2611';
+        }
+        if (respStat=='rejected') {
+          retStr += '\u2718';
+        }
+        if (respStat=='tentative') {
+          retStr += '\u2370';
+        }
+      return retStr;  
+    },
+
+
     /**
      * Append given event to widget.
      */
@@ -266,21 +301,34 @@ GoogleCalendarDesklet.prototype = {
         }
 
         // Create event row
+        let eventContainer = CalendarUtility.container(true);
+        this.window.add(eventContainer);
+        
+        let eventButton = new St.Button({});
         let box = CalendarUtility.container();
-        this.window.add(box);
+        eventButton.set_child(box);
+        eventContainer.add_actor(eventButton);
 
         let textWidth = this.maxWidth;
         let lblBullet;
         // Add a bullet to differentiate calendar
         if (this.diff_calendar) {
-            lblBullet = CalendarUtility.label("\u2022 ", this.zoom, event.color);
+            lblBullet = CalendarUtility.label("\u2739 ", this.zoom, event.color);
             box.add(lblBullet);
             textWidth = textWidth - lblBullet.width;
         }
 
+        let stateStr = '';
+        if (this.show_state) {
+            if (event.hasOwnProperty('status')) {
+                stateStr = ' ' + this.getStatusStr(event.status) + ' ';
+            }
+        }
+
+
         let dateText = event.formatEventDuration(this.lastDate);
         if (dateText) {
-            let lblEvent = CalendarUtility.label(event.name, this.zoom, this.textcolor);
+            let lblEvent = CalendarUtility.label(stateStr + event.name, this.zoom, this.textcolor);
             let lblDate = CalendarUtility.label(dateText, this.zoom, this.textcolor);
             box.add(lblEvent, {
                 expand: true,
@@ -290,7 +338,9 @@ GoogleCalendarDesklet.prototype = {
             box.add(lblDate);
             lblEvent.width = textWidth - lblDate.width - 50 * this.zoom * global.ui_scale;
         } else {
-            let lblEvent = CalendarUtility.label(event.name, this.zoom, this.alldaytextcolor);
+
+            // Adding Event
+            let lblEvent = CalendarUtility.label(stateStr + event.name, this.zoom, this.alldaytextcolor);
             lblEvent.width = textWidth;
             box.add(lblEvent);
         }
@@ -306,8 +356,37 @@ GoogleCalendarDesklet.prototype = {
             lblLocation.style = lblLocation.style + "; font-style: italic;";
             lblLocation.width = textWidth;
             locationBox.add(lblLocation);
-            this.window.add(locationBox);
+            eventContainer.add(locationBox);
         }
+        
+        if (this.show_tooltip) {
+            let toolTipText = 
+                '<b>' + _('Organizer: ') + CalendarUtility.getOrganizer( event.organizer ) + '</b>\n' +
+                '<b>' + _('Status: ') +  _(event.status) + '</b>\n' +
+                CalendarUtility.formatTextWrap( CalendarUtility.HTMLPartToTextPart( event.description ) , 50);
+            
+            let toolTip = CalendarUtility.setTooltip( eventButton, toolTipText, true );
+        }
+        
+        if (this.show_details) {
+            
+            this._signals.connect( eventButton, 'clicked', (...args) => this.onClickedEventButton(...args, this, event) );
+
+            
+        }
+        
+        
+    },
+    
+    onClickedEventButton(selfObj, p2, context, event) {
+
+        let commandLine = 
+                'GCAL_EVENTVIEW_SIZEX=' + context.detail_sizex + ' ' +
+                'GCAL_EVENTVIEW_SIZEY=' + context.detail_sizey + ' ' +
+                LIBPATH + '/eventview.js';
+        let inputStr = JSON.stringify(event);
+        
+        Util.spawnCommandLineAsyncIO(commandLine, null, { argv: null, flags: Gio.SubprocessFlags.STDIN_PIPE, input: inputStr  });
     },
 
     /**
