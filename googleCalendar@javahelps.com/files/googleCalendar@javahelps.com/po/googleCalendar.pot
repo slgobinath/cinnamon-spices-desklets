@@ -422,3 +422,38 @@ msgstr ""
 #. settings-schema.json->cornerradius->tooltip
 msgid "Radius for rounding the desklet's corners"
 msgstr ""
+
+
+#. settings
+msgid "Show event details in tooltip"
+msgstr ""
+
+#. settings
+msgid "Show event details on clicking the event"
+msgstr ""
+
+#. settings
+msgid "Width of detail windows"
+msgstr ""
+
+#. settings
+msgid "Height of detail windows"
+msgstr ""
+
+#. settings
+msgid "Show confirmation state on event list"
+msgstr ""
+
+
+#:lib/eventview.js
+msgid "Location"
+msgstr ""
+
+#:lib/eventview.js
+msgid "Organizer"
+msgstr ""
+
+#:lib/eventview.js
+msgid "Attendees"
+msgstr ""
+
